@@ -271,7 +271,7 @@ function getCombinations(array) {
             }
         }
         // console.log('  ');
-        console.log("datatosend",data_to_send);
+        // console.log("datatosend",data_to_send);
         i++;
         updateSubsetInfo(); // Update for next iteration
         // console.log("Capacities",capacities);

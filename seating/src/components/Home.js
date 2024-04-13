@@ -203,14 +203,7 @@ const Home = () => {
         });
         return Array.from(times);
     };
-    // const runBackendScript = async () => {
-    //     try {
-    //         const response = await axios.post('http://localhost:9000/run-script');
-    //         console.log('Script output:', response.data);
-    //     } catch (error) {
-    //         console.error('Error running script:', error);
-    //     }
-    // };
+
     const Aside = () => {
         let ans = dataFromAside[0].targetStudents;
         if (ans == 0)
@@ -219,15 +212,7 @@ const Home = () => {
             return "Room used are " + JSON.stringify(dataFromAside[0].optimalSubset.subset);
         // console.log(dataFromAside);
     }
-    // const Cside = () => {
-    //     let ans = dataFromCside[0].targetStudents;
-    //     if (ans == 0)
-    //         return "C side is not used";
-    //     else
-    //         return "Room used are " + JSON.stringify(dataFromCside[0].optimalSubset.subset) + " with Total capacity " + JSON.stringify(dataFromCside[0].optimalSubset.totalCapacity);
-    //     // console.log(dataFromAside);
 
-    // }
     const Nodes = () => {
         // console.log(dataFromNodes);
         let ans;
@@ -242,17 +227,6 @@ const Home = () => {
         return finalans;
         // console.log(dataFromAside);
     }
-    // const Nodes1 = () => {
-    //     let ans;
-    //     let finalans = [];
-    //     for (let i = 0; i < dataFromNodes.length - 1; i++) {
-    //         let k = dataFromNodes[i].optimalSubset;
-
-    //         ans = JSON.stringify(dataFromNodes[i].targetStudents) + " students " + "will be in classrooms "  +JSON.stringify(k.subset)  + "\n";
-    //         finalans.push(ans);
-    //     }
-    //     return finalans;
-    // }
     const handleSearch = async () => {
         const dataToSend = {
             date: date,

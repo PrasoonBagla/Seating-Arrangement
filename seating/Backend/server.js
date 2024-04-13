@@ -58,36 +58,6 @@ const parseValueList = (list, isWeight = false) => {
   });
   return result;
 };
-//########################################DATA.excel UPLOAD##################################################
-const storage_excel = multer.diskStorage({
-  destination: function(req, file, cb) {
-    // Set the destination directory relative to the server file location
-    const backendDirPath = path.join(__dirname, '../Backend/');
-    // Ensure the directory exists, create if not
-    fs.mkdirSync(backendDirPath, { recursive: true });
-    cb(null, backendDirPath);
-  },
-  filename: function(req, file, cb) {
-    // Set the filename to 'data.txt', overwriting any existing file
-    cb(null, 'DATA.xlsx');
-  }
-});
-
-const upload_excel = multer({ storage: storage_excel });
-app.post('/uploaddataexcel', upload_excel.single('file'), async (req, res) => {
-  if (req.file) {
-    console.log('File uploaded and saved as DATA.xlsx');
-    try {
-      await processFile(); // Call your existing function to process the file
-      res.send({ message: 'File processed successfully' });
-    } catch (error) {
-      console.error('Error processing the file:', error);
-      res.status(500).send('Error processing the file');
-    }
-  } else {
-    res.status(400).send({ message: 'Please upload a file.' });
-  }
-});
 //########################################DATA.TXT UPLOAD##################################################
 const storage = multer.diskStorage({
   destination: function(req, file, cb) {
@@ -195,6 +165,7 @@ const processFile = async () => {
   }
 };
 processFile();
+
 function organizeDataByDateTimeCourse(data) {
  
   const organizedData = {};
@@ -237,55 +208,182 @@ function getRoomHardCapacity(room) {
       return null;
   }
 }
-function redistributeStudents(courseData) {
-  if (!courseData) return null; // Early return if courseData is undefined or null
+//################################################# OLD REDISTRIBUTION FUNCTION###########################
+// function redistributeStudents(courseData) {
+//   // if (!courseData) continue; // Early return if courseData is undefined or null
 
-  // Make a deep copy of the original courseData to revert changes if necessary
-  const originalCourseData = JSON.parse(JSON.stringify(courseData));
+//   // Make a deep copy of the original courseData to revert changes if necessary
+//   const originalCourseData = JSON.parse(JSON.stringify(courseData));
+
+//   Object.entries(courseData).forEach(([dateTime, courses]) => {
+//       Object.entries(courses).forEach(([courseName, courseDetails]) => {
+//           if (!courseDetails || !courseDetails.rooms) return; // Skip if courseDetails or rooms is undefined
+
+//           // Find the room with the minimum capacity
+//           let minRoom = null;
+//           let minCapacity = Infinity;
+//           Object.entries(courseDetails.rooms).forEach(([room, studentCount]) => {
+//               if (studentCount < minCapacity) {
+//                   minRoom = room;
+//                   minCapacity = studentCount;
+//               }
+//           });
+
+//           // Attempt to redistribute students from the min capacity room
+//           let studentsLeftToRedistribute = minCapacity;
+//           if (minRoom) {
+//               Object.entries(courseDetails.rooms).forEach(([room, studentCount]) => {
+//                   if (room !== minRoom) {
+//                       let roomHardCapacity = getRoomHardCapacity(room);
+//                       let availableCapacity = roomHardCapacity - studentCount;
+//                       if (availableCapacity > 0 && studentsLeftToRedistribute > 0) {
+//                           let redistributeCount = Math.min(studentsLeftToRedistribute, availableCapacity);
+//                           courseDetails.rooms[room] += redistributeCount;
+//                           studentsLeftToRedistribute -= redistributeCount;
+//                       }
+//                   }
+//               });
+
+//               // Check if all students were successfully redistributed
+//               if (studentsLeftToRedistribute === 0) {
+//                   // Successfully redistributed, remove the min capacity room
+//                   delete courseDetails.rooms[minRoom];
+//               } else {
+//                   // Redistribution failed, revert to original state for this course
+//                   courseData[dateTime][courseName] = originalCourseData[dateTime][courseName];
+//               }
+//           }
+//       });
+//   });
+//   return courseData;
+// }
+//################################################################transform to room wise data############
+function transformScheduleData(scheduleData) {
+  // Initialize an empty object for the transformed schedule
+  const transformedSchedule = {};
+
+  // Iterate over each date-time slot in the schedule data
+  Object.keys(scheduleData).forEach((dateTimeSlot) => {
+    const courses = scheduleData[dateTimeSlot];
+    const transformedCourses = {};
+
+    // Transform each course within the current date-time slot
+    Object.entries(courses).forEach(([courseName, courseDetails]) => {
+      const { rooms } = courseDetails; // Destructure to get the rooms object
+
+      // Iterate through each room for the current course
+      Object.entries(rooms).forEach(([roomName, studentCount]) => {
+        // Initialize the room in the transformed structure if it doesn't exist
+        if (!transformedCourses[roomName]) {
+          transformedCourses[roomName] = [];
+        }
+
+        // Append the course details to the room
+        transformedCourses[roomName].push({
+          courseName1: courseName,
+          temp1: studentCount,
+        });
+      });
+    });
+
+    // Assign the transformed courses object to the corresponding date-time slot in the output
+    transformedSchedule[dateTimeSlot] = transformedCourses;
+  });
+
+  return transformedSchedule;
+}
+
+//################################################# NEW REDISTRIBUTION FUNCTION###########################
+function redistributeStudents(courseData) {
+  if (!courseData) return; 
+  const roomCapacities = {}; 
+
+  // Pre-compute the final capacities
+  Object.entries(courseData).forEach(([dateTime, courses]) => {
+    roomCapacities[dateTime] = {};
+
+    Object.values(courses).forEach(courseDetails => {
+      Object.entries(courseDetails.rooms).forEach(([room, studentCount]) => {
+        roomCapacities[dateTime][room] = (roomCapacities[dateTime][room] || 0) + studentCount;
+      });
+    });
+  });
 
   Object.entries(courseData).forEach(([dateTime, courses]) => {
-      Object.entries(courses).forEach(([courseName, courseDetails]) => {
-          if (!courseDetails || !courseDetails.rooms) return; // Skip if courseDetails or rooms is undefined
+    Object.entries(courses).forEach(([courseName, courseDetails]) => {
+      if (!courseDetails || !courseDetails.rooms) return;
 
-          // Find the room with the minimum capacity
-          let minRoom = null;
-          let minCapacity = Infinity;
-          Object.entries(courseDetails.rooms).forEach(([room, studentCount]) => {
-              if (studentCount < minCapacity) {
-                  minRoom = room;
-                  minCapacity = studentCount;
-              }
-          });
+      let lastRedistribution = null;
+      let redistributionOccurred = false;
 
-          // Attempt to redistribute students from the min capacity room
-          let studentsLeftToRedistribute = minCapacity;
-          if (minRoom) {
-              Object.entries(courseDetails.rooms).forEach(([room, studentCount]) => {
-                  if (room !== minRoom) {
-                      let roomHardCapacity = getRoomHardCapacity(room);
-                      let availableCapacity = roomHardCapacity - studentCount;
-                      if (availableCapacity > 0 && studentsLeftToRedistribute > 0) {
-                          let redistributeCount = Math.min(studentsLeftToRedistribute, availableCapacity);
-                          courseDetails.rooms[room] += redistributeCount;
-                          studentsLeftToRedistribute -= redistributeCount;
-                      }
-                  }
-              });
-
-              // Check if all students were successfully redistributed
-              if (studentsLeftToRedistribute === 0) {
-                  // Successfully redistributed, remove the min capacity room
-                  delete courseDetails.rooms[minRoom];
-              } else {
-                  // Redistribution failed, revert to original state for this course
-                  courseData[dateTime][courseName] = originalCourseData[dateTime][courseName];
-              }
+      do {
+        redistributionOccurred = false; 
+        let minRoom = null;
+        let minCapacity = Infinity;
+        Object.entries(courseDetails.rooms).forEach(([room, studentCount]) => {
+          if (studentCount < minCapacity) {
+            minRoom = room;
+            minCapacity = studentCount;
           }
-      });
+        });
+
+        if (minCapacity > 15 || Object.keys(courseDetails.rooms).length === 1) {
+          break; 
+        }
+        let maxRoom = null;
+        let maxFilledCapacity = -1;
+        Object.entries(courseDetails.rooms).forEach(([room, studentCount]) => {
+          let roomHardCapacity = getRoomHardCapacity(room);
+          if (room !== minRoom && studentCount > maxFilledCapacity && roomCapacities[dateTime][room] < roomHardCapacity) {
+            maxRoom = room;
+            maxFilledCapacity = studentCount;
+          }
+        });
+
+        if (minRoom && maxRoom) {
+          let roomHardCapacity = getRoomHardCapacity(maxRoom);
+          let availableCapacity = roomHardCapacity - roomCapacities[dateTime][maxRoom];
+          let redistributeCount = Math.min(minCapacity, availableCapacity);
+
+          if (redistributeCount > 0) {
+            courseDetails.rooms[maxRoom] += redistributeCount;
+            courseDetails.rooms[minRoom] -= redistributeCount;
+            roomCapacities[dateTime][maxRoom] += redistributeCount;
+            roomCapacities[dateTime][minRoom] -= redistributeCount;
+
+            if (courseDetails.rooms[minRoom] === 0) {
+              delete courseDetails.rooms[minRoom];
+            }
+
+            // Record the last successful redistribution
+            lastRedistribution = { maxRoom, minRoom, redistributeCount };
+            redistributionOccurred = true;
+          }
+        }
+      } while (redistributionOccurred); 
+
+      if (lastRedistribution) {
+        let finalMinCapacity = Math.min(...Object.values(courseDetails.rooms));
+        if (finalMinCapacity <= 6) {
+          // Check the pre-computed final capacity to ensure we're not exceeding hard capacity
+          if ((roomCapacities[dateTime][lastRedistribution.minRoom] || 0) + lastRedistribution.redistributeCount <= getRoomHardCapacity(lastRedistribution.minRoom)) {
+            courseDetails.rooms[lastRedistribution.minRoom] = (courseDetails.rooms[lastRedistribution.minRoom] || 0) + lastRedistribution.redistributeCount;
+            courseDetails.rooms[lastRedistribution.maxRoom] -= lastRedistribution.redistributeCount;
+
+            // Update pre-computed capacities after undoing the redistribution
+            roomCapacities[dateTime][lastRedistribution.minRoom] += lastRedistribution.redistributeCount;
+            roomCapacities[dateTime][lastRedistribution.maxRoom] -= lastRedistribution.redistributeCount;
+
+            if (courseDetails.rooms[lastRedistribution.maxRoom] === 0) {
+              delete courseDetails.rooms[lastRedistribution.maxRoom];
+            }
+          }
+        }
+      }
+    });
   });
   return courseData;
 }
-
 /////////////////////////////////COURSE WISE ALLOCATION/////////////////////////////////////////////////
 async function createCoursesToRoomsExcel(data) {
   const ExcelJS = require('exceljs');
@@ -349,55 +447,6 @@ async function createCoursesToRoomsExcel(data) {
 
 
 /////////////////////////////////////////////MATRIX WISE//////////////////////
-// async function prepareDataAndWriteToExcelUsingExcelJS(data) {
-//   const workbook = new ExcelJS.Workbook();
-//   const sheet = workbook.addWorksheet('Courses');
-
-//   // Define the columns in your worksheet
-//   sheet.columns = [
-//       { header: 'Date', key: 'date', width: 10 },
-//       { header: 'Time', key: 'time', width: 10 },
-//       { header: 'Course Name', key: 'courseName', width: 30 },
-//       { header: 'Total Capacity', key: 'totalCapacity', width: 15 },
-//       ...allClasses.map(classroom => ({
-//           header: classroom,
-//           key: classroom,
-//           width: 5
-//       }))
-//   ];
-
-//   // Transform the data object into a format suitable for ExcelJS
-//   Object.entries(data).forEach(([dateTime, courses]) => {
-//     const [date, time] = dateTime.split('_');
-//     Object.entries(courses).forEach(([courseName, courseDetails]) => {
-//       // Create a row object with date, time, courseName, and totalCapacity
-//       const row = {
-//         date: date.trim(),
-//         time: time.trim(),
-//         courseName,
-//         totalCapacity: courseDetails.totalStudents,
-//       };
-
-//       // Add classroom usage with the actual capacity for each classroom in the row
-//       allClasses.forEach(classroom => {
-//         // Here, instead of 'X', use the actual capacity (number of students) for the classroom
-//         // If the classroom is not used for this course, leave it empty
-//         row[classroom] = courseDetails.rooms[classroom] ? courseDetails.rooms[classroom] : '';
-//       });
-
-//       // Add the row to the sheet
-//       sheet.addRow(row);
-//     });
-//   });
-
-//   // Define the path and filename for the Excel file
-//   const filePath = path.resolve(__dirname, 'CourseSchedule.xlsx');
-
-//   // Save the workbook to the filesystem
-//   await workbook.xlsx.writeFile(filePath);
-
-//   console.log(`Excel file has been created at ${filePath}`);
-// }
 async function prepareDataAndWriteToExcelUsingExcelJS(data) {
   const workbook = new ExcelJS.Workbook();
   const sheet = workbook.addWorksheet('Courses');
@@ -523,9 +572,6 @@ app.post('/', async (req, res) => {
       }
       return acc;
     }, {});
-    // console.log(data);
-    // createCoursesToRoomsExcel(filteredData);
-    // createSecondExcel(filteredData);
     res.send({ data_from_excel, data_from_Nodes, data_from_Aside, data_from_Cside });
   } catch (error) {
     console.error('Error writing file:', error);
@@ -613,8 +659,10 @@ app.post('/downloadcoursewise', async (req, res) => {
     // console.log(finaldata['11/03/24, Monday_11:00 AM - 12:30 PM']);
     // createCoursesToRoomsExcel(finaldata);
     const organizeddata = organizeDataByDateTimeCourse(finaldata);
-    // console.log(organizeddata);
+    // console.log(organizeddata['04/05/2024, Saturday_2:00 PM - 5:00 PM']);
     const redistributeData = redistributeStudents(organizeddata);
+    // processSchedule(organizeddata);
+    // console.log(redistributeData);
     // createCoursesToRoomsExcel(redistributeData);
     const buffer = await createCoursesToRoomsExcel(redistributeData);
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
@@ -653,7 +701,12 @@ app.post('/downloadroomwise', async (req, res) => {
         delete finaldata[timeSlot];
       }
     });
-    const buffer = await createSecondExcel(finaldata);
+  //  console.log(finaldata['14/05/2024, Tuesday_2:00 PM - 5:00 PM']);
+  const organizeddata = organizeDataByDateTimeCourse(finaldata);
+  const redistributeData = redistributeStudents(organizeddata);
+   
+  const buffer = await createSecondExcel(transformScheduleData(redistributeData));
+    
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', 'attachment; filename="modified_courses_allocation.xlsx"');
     res.send(buffer);
