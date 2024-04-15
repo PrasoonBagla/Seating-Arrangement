@@ -3,6 +3,8 @@ const app = express();
 const { exec } = require('child_process');
 const cors = require('cors');
 // const ExcelJS = require('exceljs');
+// const ExcelJS = require('exceljs');
+const XLSX = require('xlsx');
 const stream = require('stream');
 const fs1 = require('fs').promises;
 const ExcelJS = require('exceljs');
@@ -715,7 +717,158 @@ app.post('/downloadroomwise', async (req, res) => {
     res.status(500).send('Internal Server Error');
   }
 });
+
+//#####################################################UPDATED REQUESTS########################################################
+const storage1 = multer.diskStorage({
+  destination: function(req, file, cb) {
+    // Set the destination directory relative to the server file location
+    const backendDirPath = path.join(__dirname, '../Backend/');
+    // Ensure the directory exists, create if not
+    fs.mkdirSync(backendDirPath, { recursive: true });
+    cb(null, backendDirPath);
+  },
+  filename: function(req, file, cb) {
+    // Set the filename to 'data.txt', overwriting any existing file
+    cb(null, 'Updated_Matrix.xlsx');
+  }
+});
+
+const upload_updated = multer({ storage: storage1 });
+app.post('/updateduploaddataexcel', upload_updated.single('file'), async (req, res) => {
+  if (req.file) {
+    console.log('File uploaded and saved as Updated_data.xlsx');
+    try {
+      await processFile(); // Call your existing function to process the file
+      res.send({ message: 'File processed successfully' });
+    } catch (error) {
+      console.error('Error processing the file:', error);
+      res.status(500).send('Error processing the file');
+    }
+  } else {
+    res.status(400).send({ message: 'Please upload a file.' });
+  }
+});
+
+async function convertAndGenerateBuffer(inputFilePath) {
+  const workbookXLSX = XLSX.readFile(inputFilePath);
+  const firstSheetName = workbookXLSX.SheetNames[0];
+  const worksheetXLSX = workbookXLSX.Sheets[firstSheetName];
+  const rawData = XLSX.utils.sheet_to_json(worksheetXLSX);
+
+  // Group data by Date and Time to find shared rooms
+  const groups = rawData.reduce((acc, item) => {
+      const key = `${item.Date} ${item.Time}`;
+      if (!acc[key]) acc[key] = [];
+      acc[key].push(item);
+      return acc;
+  }, {});
+
+  const processedData = rawData.map(item => {
+      const key = `${item.Date} ${item.Time}`;
+      const group = groups[key];
+
+      // Extract rooms for all courses in the group
+      const allRooms = group.flatMap(course =>
+          Object.keys(course)
+              .filter(key => !['Date', 'Time', 'Course Name', 'Total Capacity', 'Total Rooms Used'].includes(key) && course[key] !== null)
+              .map(room => room)
+      );
+
+      // Find unique rooms to detect shared ones
+      const uniqueRooms = [...new Set(allRooms)];
+      const shared = uniqueRooms.length < allRooms.length ? 1 : 0;
+
+      // Format rooms and students string
+      const roomsAndStudents = Object.keys(item)
+          .filter(key => !['Date', 'Time', 'Course Name', 'Total Capacity', 'Total Rooms Used'].includes(key) && item[key] !== null)
+          .map(room => `${room} (${item[room]})`)
+          .join(', ');
+
+      return {
+          Date: item.Date,
+          Time: item.Time,
+          CourseName: item['Course Name'],
+          RoomsAndStudents: roomsAndStudents,
+          NumberOfRooms: roomsAndStudents.split(', ').length,
+          TotalCourseCount: item['Total Capacity'],
+          Shared: shared
+      };
+  });
+
+  // Creating a new Excel workbook and adding processed data
+  const workbook = new ExcelJS.Workbook();
+  const worksheet = workbook.addWorksheet('Processed Data');
+  
+  worksheet.columns = [
+      { header: 'Date', key: 'Date', width: 15 },
+      { header: 'Time', key: 'Time', width: 20 },
+      { header: 'Course Name', key: 'CourseName', width: 30 },
+      { header: 'Rooms and Students', key: 'RoomsAndStudents', width: 50 },
+      { header: 'Number of Rooms', key: 'NumberOfRooms', width: 20 },
+      { header: 'Total Course Count', key: 'TotalCourseCount', width: 20 },
+      { header: 'Shared', key: 'Shared', width: 10 },
+  ];
+
+  processedData.forEach(item => {
+      worksheet.addRow(item);
+  });
+
+  // Write to a buffer instead of a file
+  const buffer = await workbook.xlsx.writeBuffer();
+  return buffer;
+}
+
+app.post('/updateddownloadcoursewise', async (req, res) => {
+  const filePath = path.join(__dirname, 'Updated_Matrix.xlsx'); // Adjust the path as necessary
+  try {
+      const buffer = await convertAndGenerateBuffer(filePath);
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', 'attachment; filename="CourseSchedule.xlsx"');
+      res.send(buffer);
+  } catch (error) {
+      console.error('Error generating Excel file:', error);
+      res.status(500).send('An error occurred.');
+  }
+});
+async function convertAndGenerateBuffer1(inputFilePath) {
+  const formatCourseStudents = (courseName, studentCount) => `${courseName} (${studentCount})`;
+
+  const workbookPrasoon = XLSX.readFile(inputFilePath);
+  const sheetPrasoon = workbookPrasoon.Sheets[workbookPrasoon.SheetNames[0]];
+
+  const dataPrasoon = XLSX.utils.sheet_to_json(sheetPrasoon, {header: 1});
+  const rowsOut = [["Date", "Time", "Room", "Courses and Students"]];
+
+  dataPrasoon.slice(1).forEach(row => {
+    const [date, time, courseName, , , ...rooms] = row;
+    rooms.forEach((studentCount, index) => {
+      if (studentCount) {
+        const roomName = dataPrasoon[0][index + 5];
+        const courseStudents = formatCourseStudents(courseName, studentCount);
+        rowsOut.push([date, time, roomName, courseStudents]);
+      }
+    });
+  });
+
+  const workbookOut = XLSX.utils.book_new();
+  const wsOut = XLSX.utils.aoa_to_sheet(rowsOut);
+  XLSX.utils.book_append_sheet(workbookOut, wsOut, 'Course Allocations by Room');
+
+  // Write workbook to buffer
+  return XLSX.write(workbookOut, {type: 'buffer', bookType: 'xlsx'});
+}
+app.post('/updateddownloadroomwise', async (req, res) => {
+  const inputFilePath = path.join(__dirname, 'Updated_Matrix.xlsx'); // Adjust the path as necessary
+  
+  // Generate the Excel file as a buffer
+  const buffer = await convertAndGenerateBuffer1(inputFilePath);
+
+  // Set headers to instruct the browser to download the file
+  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  res.setHeader('Content-Disposition', 'attachment; filename="CourseSchedule1.xlsx"');
+  res.send(buffer); // Send the buffer as the response
+});
+
 app.listen(port, () => {
   console.log(`Server running on port ${port}`);
 });
-

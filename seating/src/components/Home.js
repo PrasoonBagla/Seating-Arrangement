@@ -5,10 +5,12 @@ import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import InputLabel from '@mui/material/InputLabel';
 import MenuItem from '@mui/material/MenuItem';
 import FormControl from '@mui/material/FormControl';
+import Navbar from './Navbar';
 import Select from '@mui/material/Select';
 import * as XLSX from 'xlsx';
 import axios from 'axios';
 import Box from '@mui/material/Box';
+import {useNavigate} from 'react-router-dom';
 const VisuallyHiddenInput = styled('input')({
     clip: 'rect(0 0 0 0)',
     clipPath: 'inset(50%)',
@@ -109,6 +111,7 @@ const TD1 = styled('td')({
     textAlign: 'center', // Center the content
 });
 const Home = () => {
+    const navigate = useNavigate();
     const [file, setFile] = useState(null);
     const [date, setDate] = useState('');
     const [time, setTime] = useState('');
@@ -273,7 +276,6 @@ const Home = () => {
                 console.error('There was an error!', error);
                 // Handle the error here
             });
-        // runBackendScript();
     };
     const downloadcoursewise = async () => {
         const ispressed = {uniqueDates,uniqueTimes};
@@ -316,6 +318,9 @@ const Home = () => {
             });
         // runBackendScript();
     };
+    const updatedExcel = async () => {
+        navigate("/updated");
+    };
     const coursesData = Object.entries(dataFromCCside).reduce((acc, [room, courses]) => {
         courses.forEach(({ courseName1, temp1 }) => {
             if (!acc[courseName1]) {
@@ -327,6 +332,7 @@ const Home = () => {
     }, {});
     return (
         <div>
+            <Navbar />
             <h1>Seating Arrangement</h1>
             <Entries>
                 <Button component="label" variant="contained" startIcon={<CloudUploadIcon />} style={{ marginBottom: '8px' }}>
@@ -380,7 +386,7 @@ const Home = () => {
             <DownloadButton>
                 <Button
                     variant="contained"
-                    size="large"
+                    size="medium"
                     startIcon={<svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24"><path d="M0 0h24v24H0z" fill="none" /><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z" /></svg>}
                     onClick={downloadroomwise}
                 >
@@ -388,7 +394,7 @@ const Home = () => {
                 </Button>
                 <Button
                     variant="contained"
-                    size="large"
+                    size="medium"
                     onClick={downloadcoursewise}
                     startIcon={<svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24"><path d="M0 0h24v24H0z" fill="none" /><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z" /></svg>}
                 >
@@ -396,11 +402,18 @@ const Home = () => {
                 </Button>
                 <Button
                     variant="contained"
-                    size="large"
+                    size="medium"
                     startIcon={<svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24"><path d="M0 0h24v24H0z" fill="none" /><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z" /></svg>}
                     onClick={matrixwise}
                 >
                     Matrix wise data
+                </Button>
+                <Button
+                    variant="contained"
+                    size="medium"
+                    onClick={updatedExcel}
+                >
+                    Upload Updated Matrix Excel
                 </Button>
             </DownloadButton>
             <Data>

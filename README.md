@@ -1,95 +1,129 @@
-# Seating Arrangement Setup
 
-## Starting Points
+# Seating Arrangment
 
-![Placeholder Image](/images_for_readme/HomePage.png)
 
-### Necessary Input Documents:
 
-**1. Excel Document:**  
-A reference Excel document format is provided below:
 
-![Placeholder Image](/images_for_readme/Excel_sample.png)
+## Get Started
 
-Ensure the document is precisely named "DATA.xlsx". The columns "Course No", "Date", "Time", "Count" must not be altered, as deviations will result in failure to generate any output.
+ ![Alt text](/images_for_readme/Homepage-new.png)
 
-- **Date Format:** Must follow the pattern "MM/DD/YYYY, Day-of-Week" (e.g., "03/05/2024, Friday").
-- **Time Format:** Should be in the "Start Time - End Time" format (e.g., "10:00 AM - 11:30 AM").
+**Input Files:**
 
-Any discrepancies in the specified formats may lead to errors or no output being generated.
+**1. Excel Sheet:**  
+Sample Excel document should look like:
 
-**2. Data Text Document:** 
+ ![Alt text](/images_for_readme/Excel_sample.png)
 
-A sample Data Text file format is as shown:
+Name of the excel uploaded should be "DATA.xlsx" only.
 
-![Placeholder Image](/images_for_readme/Data_text_file.png)
+Here column name "Course No", "Date", "Time", "Count" should remain same any changes in this will result in no output.
+ 
+Format for Date should be Date seperated by a comma then space and then day for example "03/05/2024, Friday"
+    
+Format for Time should be seperated by a hyphen for example "10:00 AM - 11:30 AM"
 
-**Note:** This document should remain unchanged unless there is a need to update room capacities.
+any changes in the above format will lead to no output or Error. 
 
-### Generated Output Documents:
+**2. Data Text File:** 
 
-**1. Data by Room:**
+Data Text file should look like:
 
-Generates results for each specified time slot and room.
+ ![Alt text](/images_for_readme/Data_text_file.png)
 
-**2. Data by Course:** 
+ **This file should not be altered untill unless a room capacity is changed**
 
-Produces outcomes for each time slot and course.
 
-**Note:** An entry of 1 in the Shared column signifies that the course is being shared with another course, while 0 indicates no sharing.
 
-**3. Data by Matrix:** 
+**Output Files:**
 
-Displays results for each time slot, with all classrooms and lecture theatres represented as individual columns.
+**1. Room Wise Data:**
 
-## Local Setup
+This will give results for each time slot and each room.
 
-Clone the repository:
+**2. Course Wise Data:** 
+
+This will give results for each time slot and each Course.
+
+**Note:** Shared column entry 1 means that course is shared with other course and 0 means not shared.
+
+**2. Matrix Wise Data:** 
+
+This will give results for each time slot and with all classrooms and LT's as seperate column.
+
+**Updated Matrix File:**
+
+ ![Alt text](/images_for_readme/UPDATED.png)
+
+**Matrix Excel Sheet:**  
+Sample Excel document should look like:
+
+ ![Alt text](/images_for_readme/updated_excel.png)
+
+Here column name "Date", "Time", "Course Name", "Total Capacity", "Total Rooms Used" and all the Room Numbers should remain same any changes in this will result in no output.
+ 
+Format for Date should be Date seperated by a comma then space and then day for example "03/05/2024, Friday"
+    
+Format for Time should be seperated by a hyphen for example "10:00 AM - 11:30 AM"
+
+any changes in the above format will lead to no output or Error. 
+
+
+
+
+
+
+
+## Run Locally
+
+Clone the project
 
 ```bash
-git clone https://github.com/PrasoonBagla/Seating-Arrangment-1.git
+  git clone https://github.com/PrasoonBagla/Seating-Arrangment-1.git
 ```
 
-Navigate to the project folder:
+Go to the project directory
 
 ```bash
-cd seating
+  cd seating
 ```
 
-Install necessary packages:
+Install dependencies
 
 ```bash
-npm install
+  npm install
 ```
 
-Launch the Frontend:
+Run Frontend
 
 ```bash
-npm start
+  npm start
 ```
-
-Switch to the Backend folder:
+Go to backend directory
 
 ```bash
-cd Backend
+   cd Backend
 ```
-
-Start the Backend server:
+Run Backend
 
 ```bash
-npm start
+   npm start
 ```
 
-## Technology Stack
 
-**Frontend:** ReactJS
+## Tech Stack
 
-**Backend:** Node, Express
+**Client:** ReactJS
+
+**Server:** Node, Express
+
 
 ## Support
 
-For assistance, reach out to f20201159@goa.bits-pilani.ac.in.
+For support, email f20201159@goa.bits-pilani.ac.in
 
-## Contributors
 
-- [Prasoon Bagla](https://github.com/PrasoonBagla)
+## Authors
+
+- [@PrasoonBagla](https://github.com/PrasoonBagla)
+
