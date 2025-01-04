@@ -15,9 +15,7 @@ const Entries = styled('div')({
 
 });
 const DownloadButton = styled(Button)({
-
     gap: '20px',
-
 });
 const VisuallyHiddenInput = styled('input')({
     clip: 'rect(0 0 0 0)',
@@ -41,7 +39,6 @@ const Updated = () => {
             const sheetName = workbook.SheetNames[0];
             const worksheet = workbook.Sheets[sheetName];
             const data = XLSX.utils.sheet_to_json(worksheet);
-
         };
         const formData = new FormData();
         formData.append('file', file); // Append the original file
@@ -97,6 +94,7 @@ const Updated = () => {
                // Handle the error here
            });
    };
+   
     return (
         <div>
             <Navbar />

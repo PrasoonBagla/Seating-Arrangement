@@ -763,42 +763,51 @@ async function convertAndGenerateBuffer(inputFilePath) {
       return acc;
   }, {});
 
-  const processedData = rawData.map(item => {
-      const key = `${item.Date} ${item.Time}`;
-      const group = groups[key];
+  const processedData = [];
+  Object.keys(groups).forEach(slot => {
+    const coursesInSlot = groups[slot];
 
-      // Extract rooms for all courses in the group
-      const allRooms = group.flatMap(course =>
-          Object.keys(course)
-              .filter(key => !['Date', 'Time', 'Course Name', 'Total Capacity', 'Total Rooms Used'].includes(key) && course[key] !== null)
-              .map(room => room)
-      );
+    // Create room and course mapping for the current slot
+    const roomUsageCounts = {};
+    coursesInSlot.forEach(course => {
+      Object.keys(course)
+        .filter(key => !['Date', 'Time', 'Course Name', 'Total Capacity', 'Total Rooms Used'].includes(key) && course[key] !== null)
+        .forEach(room => {
+          if (!roomUsageCounts[room]) {
+            roomUsageCounts[room] = new Set();
+          }
+          roomUsageCounts[room].add(course['Course Name']);
+        });
+    });
 
-      // Find unique rooms to detect shared ones
-      const uniqueRooms = [...new Set(allRooms)];
-      const shared = uniqueRooms.length < allRooms.length ? 1 : 0;
+    // Process each course in the slot
+    coursesInSlot.forEach(course => {
+      const roomsAndStudents = Object.keys(course)
+        .filter(key => !['Date', 'Time', 'Course Name', 'Total Capacity', 'Total Rooms Used'].includes(key) && course[key] !== null)
+        .map(room => `${room} (${course[room]})`)
+        .join(', ');
 
-      // Format rooms and students string
-      const roomsAndStudents = Object.keys(item)
-          .filter(key => !['Date', 'Time', 'Course Name', 'Total Capacity', 'Total Rooms Used'].includes(key) && item[key] !== null)
-          .map(room => `${room} (${item[room]})`)
-          .join(', ');
+      // Check if the current course has any shared room
+      const shared = Object.keys(course)
+        .filter(room => !['Date', 'Time', 'Course Name', 'Total Capacity', 'Total Rooms Used'].includes(room) && course[room] !== null)
+        .some(room => roomUsageCounts[room].size > 1);
 
-      return {
-          Date: item.Date,
-          Time: item.Time,
-          CourseName: item['Course Name'],
-          RoomsAndStudents: roomsAndStudents,
-          NumberOfRooms: roomsAndStudents.split(', ').length,
-          TotalCourseCount: item['Total Capacity'],
-          Shared: shared
-      };
+      processedData.push({
+        Date: course.Date,
+        Time: course.Time,
+        CourseName: course['Course Name'],
+        RoomsAndStudents: roomsAndStudents,
+        NumberOfRooms: roomsAndStudents.split(', ').length,
+        TotalCourseCount: course['Total Capacity'],
+        Shared: shared ? 1 : 0
+      });
+    });
   });
 
   // Creating a new Excel workbook and adding processed data
   const workbook = new ExcelJS.Workbook();
   const worksheet = workbook.addWorksheet('Processed Data');
-  
+
   worksheet.columns = [
       { header: 'Date', key: 'Date', width: 15 },
       { header: 'Time', key: 'Time', width: 20 },
@@ -817,6 +826,7 @@ async function convertAndGenerateBuffer(inputFilePath) {
   const buffer = await workbook.xlsx.writeBuffer();
   return buffer;
 }
+
 
 app.post('/updateddownloadcoursewise', async (req, res) => {
   const filePath = path.join(__dirname, 'Updated_Matrix.xlsx'); // Adjust the path as necessary
